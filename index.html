@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zoo Vili klub — upravljanje</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* boje i pisma prema brand smjernicama 2026. (isto kao aplikacija, src/theme.ts) */
+  :root{--blue:#1558B0;--navy:#0D1F3C;--sky:#E7F0FB;--gold:#F5A623;--goldSoft:#FCEBCB;--goldDark:#9A6A0E;--bg:#FEF9F0;--card:#fff;--ink:#1A2A3A;--muted:#888780;--faint:#B5B3AC;--line:#EFE8DB;--danger:#D64550;--success:#1D9E75;--r:14px}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Nunito Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:16px}
+  h1,h2,.logo,.stat .v,nav button,.btn{font-family:Nunito,'Nunito Sans',system-ui,sans-serif}
+  button,input,select,textarea{font:inherit}
+  a{color:var(--blue)}
+  .hidden{display:none!important}
+  /* ---------- prijava ---------- */
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .login-card{background:var(--card);border-radius:28px;padding:36px 32px;width:100%;max-width:420px;box-shadow:0 10px 40px rgba(27,37,64,.08);text-align:center}
+  .logo{font-weight:800;font-size:28px;color:var(--blue);letter-spacing:1px}
+  .logo small{display:block;font-weight:600;font-size:14px;color:var(--muted);letter-spacing:0}
+  /* ---------- okvir ---------- */
+  #app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+  nav{background:var(--navy);color:#fff;padding:22px 16px;display:flex;flex-direction:column;gap:6px}
+  nav .logo{color:#fff;font-size:22px;padding:6px 12px 18px}
+  nav .logo small{color:#CBDDF6}
+  nav button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;color:#CBDDF6;padding:14px 14px;border-radius:14px;font-weight:700;font-size:16px;cursor:pointer}
+  nav button:hover{background:rgba(255,255,255,.08);color:#fff}
+  nav button.active{background:var(--blue);color:#fff}
+  nav button .ic{font-size:20px;width:26px;text-align:center}
+  nav .spacer{flex:1}
+  nav .who{font-size:13px;color:#8FA3C8;padding:10px 14px;line-height:1.4}
+  main{padding:28px 36px;max-width:1200px}
+  h1{font-size:28px;font-weight:800;margin:0 0 6px}
+  .lead{color:var(--muted);margin:0 0 22px;font-size:15px}
+  h2{font-size:18px;font-weight:800;margin:26px 0 12px}
+  /* ---------- komponente ---------- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+  .card{background:var(--card);border-radius:var(--r);padding:18px 20px;box-shadow:0 6px 16px rgba(27,37,64,.06)}
+  .stat .v{font-size:32px;font-weight:800;line-height:1.1}
+  .stat .l{color:var(--muted);font-size:14px;margin-top:4px}
+  .stat .s{color:var(--faint);font-size:12.5px;margin-top:6px}
+  .ok{color:var(--success)} .bad{color:var(--danger)} .gold{color:var(--goldDark)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .chip{border:2px solid var(--line);background:#fff;border-radius:999px;padding:8px 14px;font-weight:800;font-size:14px;cursor:pointer;color:var(--ink)}
+  .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  .tag.premium{background:var(--navy);color:var(--gold)}
+  .premium-box{background:var(--navy);color:#fff;border-radius:var(--r);padding:18px 20px}
+  .premium-box .muted{color:#CFE0F5}
+  .rules td,.rules th{font-size:15px}
+  .rules td:first-child{font-weight:800;width:32%}
+  .timeline{list-style:none;margin:0;padding:0}
+  .timeline li{padding:10px 0;border-top:1px solid var(--line)}
+  .timeline li:first-child{border-top:0}
+  @media print{nav,.no-print,.toast{display:none!important}#app{display:block}main{padding:0;max-width:none}.card,table{box-shadow:none;border:1px solid #ddd}body{background:#fff}}
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--blue);color:#fff;border:0;border-radius:999px;padding:12px 20px;font-weight:800;font-size:15px;cursor:pointer}
+  .btn:disabled{background:var(--faint);cursor:default}
+  .btn.ghost{background:#fff;color:var(--blue);border:2px solid var(--blue)}
+  .btn.danger{background:var(--danger)} .btn.small{padding:8px 14px;font-size:13.5px}
+  .btn.gray{background:var(--line);color:var(--ink)}
+  input[type=text],input[type=email],input[type=number],input[type=date],select,textarea{width:100%;height:48px;border:2px solid var(--line);border-radius:14px;padding:0 14px;background:#fff;color:var(--ink);outline:none}
+  textarea{height:auto;padding:12px 14px;min-height:80px}
+  input:focus,select:focus,textarea:focus{border-color:var(--blue)}
+  label{display:block;font-weight:800;font-size:13.5px;margin:12px 0 6px}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .grow{flex:1;min-width:200px}
+  table{width:100%;border-collapse:collapse;background:var(--card);border-radius:var(--r);overflow:hidden;box-shadow:0 6px 16px rgba(27,37,64,.06)}
+  th{text-align:left;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:12px 16px;background:#F8FAFD}
+  td{padding:13px 16px;border-top:1px solid var(--line);vertical-align:middle}
+  tr.click{cursor:pointer} tr.click:hover td{background:#F8FAFD}
+  .tag{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:800;background:var(--sky);color:var(--blue)}
+  .tag.gold{background:var(--goldSoft);color:#7A5A12} .tag.green{background:#E4F6EA;color:var(--success)} .tag.red{background:#FBE9E7;color:var(--danger)} .tag.gray{background:var(--line);color:var(--muted)}
+  .pts{font-weight:800} .pts.plus{color:var(--success)} .pts.minus{color:var(--danger)}
+  .muted{color:var(--muted)} .small{font-size:13px}
+  .empty{padding:30px;text-align:center;color:var(--muted);background:var(--card);border-radius:var(--r)}
+  .banner{display:flex;gap:12px;align-items:flex-start;background:var(--sky);border-radius:var(--r);padding:14px 16px;color:var(--ink);font-size:14.5px;line-height:1.5;margin-bottom:16px}
+  .banner.warn{background:#FBF3DF;color:#7A5A12} .banner.err{background:#FBE9E7;color:var(--danger)}
+  .toast{position:fixed;right:24px;bottom:24px;background:var(--navy);color:#fff;padding:14px 20px;border-radius:14px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.2);opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none}
+  .toast.show{opacity:1;transform:none}
+  /* ---------- modal ---------- */
+  .modal-bg{position:fixed;inset:0;background:rgba(16,30,62,.45);display:flex;align-items:center;justify-content:center;padding:20px;z-index:10}
+  .modal{background:var(--card);border-radius:24px;width:100%;max-width:760px;max-height:92vh;overflow:auto;padding:26px 28px;position:relative}
+  .modal .close{position:absolute;top:14px;right:14px;width:40px;height:40px;border-radius:20px;border:0;background:var(--bg);font-size:20px;cursor:pointer}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .help{font-size:13px;color:var(--muted);margin-top:4px}
+  code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:13px}
+  @media (max-width:820px){#app{grid-template-columns:1fr}nav{flex-direction:row;flex-wrap:wrap;padding:10px}nav .logo,nav .who,nav .spacer{display:none}nav button{width:auto;padding:10px 12px;font-size:14px}main{padding:18px}.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ===================== PRIJAVA ===================== -->
+<section id="login">
+  <div class="login-card">
+    <div class="logo">ZOO VILI<small>Klub vjernosti — upravljanje</small></div>
+    <div id="login-step1">
+      <p class="lead" style="margin-top:14px">Upiši svoj e-mail. Poslat ćemo ti kod za prijavu — bez lozinke.</p>
+      <input type="email" id="login-email" placeholder="ime@zoo-vili.hr" autocomplete="email">
+      <button class="btn" id="login-send" style="width:100%;justify-content:center;margin-top:14px">Pošalji mi kod</button>
+    </div>
+    <div id="login-step2" class="hidden">
+      <p class="lead" style="margin-top:14px">Upiši kod iz e-maila koji smo poslali na <b id="login-email-shown"></b>.</p>
+      <input type="text" id="login-code" inputmode="numeric" placeholder="••••••••" style="text-align:center;font-size:26px;letter-spacing:6px;font-weight:800">
+      <button class="btn" id="login-verify" style="width:100%;justify-content:center;margin-top:14px">Prijavi se</button>
+      <button class="btn ghost small" id="login-back" style="margin-top:12px">Natrag</button>
+    </div>
+    <p id="login-error" class="bad small hidden" style="margin-top:12px"></p>
+    <p class="muted small" style="margin-top:18px">Pristup imaju samo ovlaštene osobe Zoo Vilija.</p>
+  </div>
+</section>
+
+<!-- ===================== APLIKACIJA ===================== -->
+<section id="app" class="hidden">
+  <nav>
+    <div class="logo">ZOO VILI<small>Klub vjernosti</small></div>
+    <button data-page="pregled" class="active"><span class="ic">🏠</span>Pregled</button>
+    <button data-page="clanovi"><span class="ic">👥</span>Članovi</button>
+    <button data-page="kuponi"><span class="ic">🎟️</span>Kuponi</button>
+    <button data-page="osoblje"><span class="ic">🧑‍💼</span>Osoblje</button>
+    <button data-page="webshop"><span class="ic">🛒</span>Webshop</button>
+    <button data-page="pravila"><span class="ic">📋</span>Pravila</button>
+    <button data-page="postavke"><span class="ic">⚙️</span>Postavke</button>
+    <div class="spacer"></div>
+    <div class="who" id="who"></div>
+    <button id="logout"><span class="ic">🚪</span>Odjava</button>
+  </nav>
+  <main id="main"></main>
+</section>
+
+<div class="toast" id="toast"></div>
+<div id="modal-root"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://rjxxffonwjihogbpnlvi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqeHhmZm9ud2ppaG9nYnBubHZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0MTUyMjYsImV4cCI6MjEwMjk5MTIyNn0.yvNnd3H3ZPtFzhAaEhiksX-0RMgLQ7sNGwq3wqVJ2WA';
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { db: { schema: 'loyalty' } });
+
+// ---------- pomoćno ----------
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const eur = (n) => Number(n ?? 0).toLocaleString('hr-HR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+const num = (n) => Number(n ?? 0).toLocaleString('hr-HR');
+const dt = (iso) => iso ? new Date(iso).toLocaleString('hr-HR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+const d = (iso) => iso ? new Date(iso).toLocaleDateString('hr-HR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+const ago = (iso) => { if (!iso) return 'nikad'; const m = Math.round((Date.now() - new Date(iso)) / 60000); if (m < 1) return 'upravo'; if (m < 60) return `prije ${m} min`; const h = Math.round(m / 60); if (h < 48) return `prije ${h} h`; return `prije ${Math.round(h / 24)} dana`; };
+const KIND = { welcome: 'Dobrodošlica', purchase_store: 'Kupnja u trgovini', purchase_web: 'Kupnja na webshopu', redeem: 'Iskorišten popust', refund: 'Povrat robe', adjust: 'Ručna korekcija', expire: 'Istek bodova' };
+const STATUS = { pending: ['Na čekanju', 'gold'], confirmed: ['Potvrđeno', 'green'], released: ['Poništeno', 'gray'] };
+const EVENT = { premium_reached: '⭐ PREMIUM osvojen (dosegnut prag bodova)', premium_granted: '⭐ PREMIUM dodijeljen ručno', premium_revoked: 'PREMIUM uklonjen', premium_voucher_issued: '🎁 Fizički PREMIUM bon predan', premium_voucher_reset: 'Oznaka bona poništena', legacy_discount: 'Prijelazni popust 15 % (stari program)' };
+const ERR = { not_admin: 'Ovaj račun nema administratorske ovlasti.', no_account: 'Ta osoba još nema račun u aplikaciji — neka se prvo registrira u Zoo Vili aplikaciji.', note_required: 'Upiši razlog.', bad_delta: 'Broj bodova nije ispravan.', cannot_remove_self: 'Ne možeš ukloniti sebe.', last_admin: 'Mora ostati barem jedan administrator.', missing_fields: 'Popuni naziv, popust i datum.', bad_value: 'Vrijednost nije ispravna.', not_premium: 'Član nije PREMIUM — prvo mu dodijeli PREMIUM.', otp_disabled: 'Taj e-mail nema račun. Osoba se prvo mora registrirati u aplikaciji.', signup_disabled: 'Taj e-mail nema račun.' };
+const pctList = (o) => Object.entries(o ?? {}).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([k, v]) => `${k.replace('*', ' %*')}${k.includes('*') ? '' : ' %'}: ${v}`).join(' · ');
+// kratka forma s obaveznim razlogom (PREMIUM/bon)
+const askNote = (title, placeholder) => new Promise((res) => { const m = modal(`<h2 style="margin-top:0">${esc(title)}</h2><label>Razlog (obavezno, zapisuje se)</label><input type="text" id="n-note" placeholder="${esc(placeholder)}"><div class="row" style="margin-top:16px"><button class="btn" id="n-ok">Spremi</button><button class="btn gray" id="n-no">Odustani</button></div>`); $('#n-note', m.root).focus(); $('#n-ok', m.root).onclick = () => { const v = $('#n-note', m.root).value.trim(); if (!v) return toast('Upiši razlog.', true); m.close(); res(v); }; $('#n-no', m.root).onclick = () => { m.close(); res(null); }; });
+const msg = (e) => { const m = e?.message ?? String(e); for (const k in ERR) if (m.includes(k)) return ERR[k]; if (/expired/i.test(m)) return 'Kod je istekao — zatraži novi.'; if (/invalid|token/i.test(m)) return 'Kod nije točan.'; return 'Nešto je pošlo po zlu: ' + m; };
+let toastT; const toast = (t, bad = false) => { const el = $('#toast'); el.textContent = t; el.style.background = bad ? 'var(--danger)' : 'var(--navy)'; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 3200); };
+async function rpc(fn, args) { const { data, error } = await sb.rpc(fn, args); if (error) throw error; return data; }
+function modal(html) { const root = $('#modal-root'); root.innerHTML = `<div class="modal-bg"><div class="modal"><button class="close" title="Zatvori">✕</button>${html}</div></div>`; const close = () => (root.innerHTML = ''); $('.close', root).onclick = close; $('.modal-bg', root).addEventListener('click', (e) => { if (e.target.classList.contains('modal-bg')) close(); }); return { root, close }; }
+const confirmDlg = (text) => new Promise((res) => { const m = modal(`<h2 style="margin-top:0">${esc(text)}</h2><div class="row" style="margin-top:16px"><button class="btn" id="c-yes">Da</button><button class="btn gray" id="c-no">Odustani</button></div>`); $('#c-yes', m.root).onclick = () => { m.close(); res(true); }; $('#c-no', m.root).onclick = () => { m.close(); res(false); }; });
+
+// ---------- prijava ----------
+let pendingEmail = '';
+$('#login-send').onclick = async () => {
+  const email = $('#login-email').value.trim().toLowerCase(); const err = $('#login-error'); err.classList.add('hidden');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Upiši ispravan e-mail.'; err.classList.remove('hidden'); return; }
+  $('#login-send').disabled = true;
+  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+  $('#login-send').disabled = false;
+  if (error) { err.textContent = msg(error); err.classList.remove('hidden'); return; }
+  pendingEmail = email; $('#login-email-shown').textContent = email; $('#login-step1').classList.add('hidden'); $('#login-step2').classList.remove('hidden'); $('#login-code').focus();
+};
+$('#login-email').addEventListener('keydown', (e) => e.key === 'Enter' && $('#login-send').click());
+$('#login-code').addEventListener('keydown', (e) => e.key === 'Enter' && $('#login-verify').click());
+$('#login-back').onclick = () => { $('#login-step2').classList.add('hidden'); $('#login-step1').classList.remove('hidden'); };
+$('#login-verify').onclick = async () => {
+  const code = $('#login-code').value.replace(/\D/g, ''); const err = $('#login-error'); err.classList.add('hidden');
+  $('#login-verify').disabled = true;
+  const { error } = await sb.auth.verifyOtp({ email: pendingEmail, token: code, type: 'email' });
+  $('#login-verify').disabled = false;
+  if (error) { err.textContent = msg(error); err.classList.remove('hidden'); return; }
+  await start();
+};
+$('#logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+async function start() {
+  const { data } = await sb.auth.getSession();
+  if (!data.session) { $('#login').classList.remove('hidden'); $('#app').classList.add('hidden'); return; }
+  let me;
+  try { me = await rpc('me'); } catch (e) { $('#login-error').textContent = msg(e); $('#login-error').classList.remove('hidden'); return; }
+  if (!me.is_admin) { await sb.auth.signOut(); $('#login-step2').classList.add('hidden'); $('#login-step1').classList.remove('hidden'); $('#login-error').textContent = ERR.not_admin; $('#login-error').classList.remove('hidden'); return; }
+  $('#who').innerHTML = `Prijavljen/a:<br><b>${esc(me.profile.first_name || me.profile.email)}</b>`;
+  $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
+  go(location.hash.replace('#', '') || 'pregled');
+}
+
+// ---------- navigacija ----------
+const pages = {};
+function go(page) {
+  if (!pages[page]) page = 'pregled';
+  $$('nav button[data-page]').forEach((b) => b.classList.toggle('active', b.dataset.page === page));
+  location.hash = page;
+  $('#main').innerHTML = '<p class="muted">Učitavam…</p>';
+  pages[page]().catch((e) => { $('#main').innerHTML = `<div class="banner err">${esc(msg(e))}</div>`; });
+}
+$$('nav button[data-page]').forEach((b) => (b.onclick = () => go(b.dataset.page)));
+window.addEventListener('hashchange', () => { const p = location.hash.replace('#', ''); if (p && pages[p] && !$('#app').classList.contains('hidden')) go(p); });
+
+// ---------- PREGLED ----------
+pages.pregled = async () => {
+  const [s, act] = await Promise.all([rpc('admin_stats'), rpc('admin_activity', { p_limit: 15 })]);
+  const syncOk = s.last_sync && s.last_sync.outcome === 'ok' && Date.now() - new Date(s.last_sync.at) < 40 * 60000;
+  $('#main').innerHTML = `
+    <h1>Pregled</h1><p class="lead">Kako ide Zoo Vili klub — stanje danas, ${new Date().toLocaleDateString('hr-HR')}</p>
+    <div class="cards">
+      <div class="card stat"><div class="v">${num(s.members_total)}</div><div class="l">članova kluba</div><div class="s">+${num(s.members_new_30d)} u zadnjih 30 dana · ${num(s.members_active_30d)} kupovalo</div></div>
+      <div class="card stat"><div class="v">${num(s.purchases_today.count)}</div><div class="l">kupnji danas</div><div class="s">${eur(s.purchases_today.sum)}</div></div>
+      <div class="card stat"><div class="v">${eur(s.purchases_month.sum)}</div><div class="l">promet članova ovaj mjesec</div><div class="s">trgovina ${eur(s.purchases_month_store.sum)} · webshop ${eur(s.purchases_month_web.sum)}</div></div>
+      <div class="card stat"><div class="v gold">${num(s.points_outstanding)}</div><div class="l">bodova na karticama</div><div class="s"><a href="#" data-go-filter="ready">${num(s.members_ready_top)} članova</a> može iskoristiti najveći popust (${num(s.top_tier_points)}+ bodova)</div></div>
+      <div class="card stat"><div class="v">${num(s.redemptions_month.count)}</div><div class="l">iskorištenih popusta ovaj mjesec</div><div class="s">${pctList(s.redemptions_month_by_pct) || 'još nijedan'} · ${num(s.redemptions_active)} aktivnih sad</div></div>
+      <div class="card stat"><div class="v" style="color:var(--navy)">⭐ ${num(s.premium_total)}</div><div class="l">PREMIUM članova</div><div class="s">+${num(s.premium_new_30d)} u zadnjih 30 dana · ${s.vouchers_pending ? `<a href="#" data-go-filter="voucher" class="bad">${num(s.vouchers_pending)} čeka fizički bon</a>` : 'svi bonovi predani'}</div></div>
+      ${s.legacy_active || s.legacy_used ? `<div class="card stat"><div class="v">${num(s.legacy_used)}</div><div class="l">prijelaznih popusta 15 %</div><div class="s">${s.legacy_active ? 'prijelazno razdoblje traje (Postavke)' : 'prijelazno razdoblje završeno'}</div></div>` : ''}
+      <div class="card stat"><div class="v ${syncOk ? 'ok' : 'bad'}">${syncOk ? '✓' : '!'}</div><div class="l">veza s webshopom</div><div class="s">${s.last_sync ? 'zadnja provjera ' + ago(s.last_sync.at) : 'još nije povezano'}${s.webhook_problems_24h > 0 ? ` · <span class="bad">${s.webhook_problems_24h} problema u 24 h</span>` : ''}</div></div>
+    </div>
+    <h2>Zadnje aktivnosti</h2>
+    ${act.length ? `<table><thead><tr><th>Kada</th><th>Član</th><th>Što</th><th>Iznos</th><th>Bodovi</th><th>Stanje</th></tr></thead><tbody>
+      ${act.map((a) => `<tr class="click" data-id="${a.profile_id}"><td class="small muted">${dt(a.at)}</td><td><b>${esc(a.name || '—')}</b><br><span class="small muted">${esc(a.card)}</span></td><td>${KIND[a.kind] ?? a.kind}${a.note ? `<br><span class="small muted">${esc(a.note)}</span>` : ''}</td><td>${a.amount != null ? eur(a.amount) : ''}</td><td class="pts ${a.delta >= 0 ? 'plus' : 'minus'}">${a.delta >= 0 ? '+' : ''}${a.delta}</td><td><span class="tag ${STATUS[a.status][1]}">${STATUS[a.status][0]}</span></td></tr>`).join('')}
+    </tbody></table>` : '<div class="empty">Još nema aktivnosti.</div>'}`;
+  $$('tr.click').forEach((tr) => (tr.onclick = () => openMember(tr.dataset.id)));
+  $$('[data-go-filter]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); memberFilter = a.dataset.goFilter; go('clanovi'); }));
+};
+
+// ---------- ČLANOVI ----------
+let memberFilter = '';
+const FILTERS = [['', 'Svi'], ['premium', '⭐ PREMIUM'], ['voucher', '🎁 Bon nije predan'], ['ready', 'Mogu najveći popust']];
+pages.clanovi = async () => {
+  $('#main').innerHTML = `
+    <h1>Članovi</h1><p class="lead">Pretraži po imenu, e-mailu ili broju kartice. Klikni na člana za detalje, korekciju bodova i PREMIUM.</p>
+    <div class="chips">${FILTERS.map(([k, l]) => `<button class="chip ${memberFilter === k ? 'on' : ''}" data-filter="${k}">${l}</button>`).join('')}</div>
+    <div class="row" style="margin-bottom:14px"><input type="text" id="q" class="grow" placeholder="npr. Ana, ana@gmail.com ili ZV-0001001"><button class="btn" id="q-btn">Traži</button><button class="btn ghost" id="export">Preuzmi popis (CSV)</button></div>
+    <div id="list"></div>`;
+  const load = async () => {
+    const q = $('#q').value.trim();
+    const r = await rpc('admin_members', { p_search: q, p_limit: 200, p_offset: 0, p_filter: memberFilter });
+    const hint = { voucher: 'PREMIUM članovi kojima fizički bon još nije predan — predaje se pri sljedećem dolasku u trgovinu (Blagajna to sama ponudi).', ready: 'Članovi koji već mogu iskoristiti najveći popust. Uputa: bodove treba poticati da se koriste, a ne da se gomilaju.', premium: 'Status se osvaja jednom, pri prvom dolasku do 300 bodova.' }[memberFilter];
+    $('#list').innerHTML = (hint ? `<div class="banner">${hint}</div>` : '') + (r.rows.length ? `<p class="muted small">${num(r.total)} član(ova)${r.total > 200 ? ' — prikazano prvih 200, suzi pretragu' : ''}</p>
+      <table><thead><tr><th>Član</th><th>Kartica</th><th>Bodovi</th><th>Zadnja kupnja</th><th>Član od</th><th></th></tr></thead><tbody>
+      ${r.rows.map((m) => `<tr class="click" data-id="${m.id}"><td><b>${esc(m.name || '—')}</b>${m.premium ? ' <span class="tag premium">⭐ PREMIUM</span>' : ''}<br><span class="small muted">${esc(m.email)}</span></td><td>${esc(m.card)}</td><td class="pts">${num(m.points)}${m.pending ? ` <span class="small gold">+${m.pending} na čekanju</span>` : ''}</td><td class="small">${m.last_purchase ? d(m.last_purchase) : '<span class="muted">još nije kupovao</span>'}</td><td class="small">${d(m.created_at)}</td><td>${m.voucher_pending ? '<span class="tag gold">bon čeka</span> ' : ''}${m.webshop ? '<span class="tag">webshop</span>' : ''}${!m.verified ? ' <span class="tag gray">nepotvrđen</span>' : ''}</td></tr>`).join('')}
+      </tbody></table>` : '<div class="empty">Nema članova koji odgovaraju pretrazi.</div>');
+    $$('tr.click').forEach((tr) => (tr.onclick = () => openMember(tr.dataset.id)));
+    $('#export').onclick = () => {
+      const rows = [['Ime', 'E-mail', 'Kartica', 'Bodovi', 'Na čekanju', 'PREMIUM', 'PREMIUM bon', 'Zadnja kupnja', 'Član od', 'Webshop'], ...r.rows.map((m) => [m.name, m.email, m.card, m.points, m.pending, m.premium ? 'da' : 'ne', m.premium ? (m.voucher_pending ? 'nije predan' : 'predan') : '', m.last_purchase ? d(m.last_purchase) : '', d(m.created_at), m.webshop ? 'da' : 'ne'])];
+      const csv = '﻿' + rows.map((x) => x.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = `zoo-vili-clanovi-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    };
+  };
+  $('#q-btn').onclick = load; $('#q').addEventListener('keydown', (e) => e.key === 'Enter' && load());
+  $$('[data-filter]').forEach((b) => (b.onclick = () => { memberFilter = b.dataset.filter; $$('[data-filter]').forEach((x) => x.classList.toggle('on', x === b)); load(); }));
+  await load();
+};
+
+async function openMember(id) {
+  const m = modal('<p class="muted">Učitavam…</p>');
+  let x; try { x = await rpc('admin_member', { p_id: id }); } catch (e) { m.close(); toast(msg(e), true); return; }
+  const p = x.profile;
+  const pr = x.premium ?? {};
+  $('.modal', m.root).innerHTML = `<button class="close">✕</button>
+    <h1 style="font-size:24px">${esc(p.name || 'Član')}${pr.since ? ' <span class="tag premium" style="font-size:14px;vertical-align:middle">⭐ PREMIUM</span>' : ''}</h1>
+    <p class="lead">${esc(p.email)}${p.phone ? ' · ' + esc(p.phone) : ''} · kartica <b>${esc(p.card)}</b> · član od ${d(p.created_at)}
+      ${p.webshop ? ' <span class="tag">webshop povezan</span>' : ''}${!p.verified ? ' <span class="tag gray">e-mail nepotvrđen</span>' : ''}${x.is_staff ? ' <span class="tag gold">osoblje</span>' : ''}</p>
+    <div class="premium-box" style="margin-bottom:16px">
+      ${pr.since
+        ? `<b>⭐ PREMIUM od ${d(pr.since)}</b> ${pr.voucher_issued_at ? `Fizički bon predan ${dt(pr.voucher_issued_at)}${pr.voucher_issued_by ? ` (${esc(pr.voucher_issued_by)})` : ''}.` : '<span style="color:var(--gold)"><b>Fizički bon još nije predan</b> — predaje se pri sljedećem dolasku u trgovinu; u kasi upisati PREMIUM u „Nadimak“.</span>'}`
+        : `<b>Nije PREMIUM.</b> <span class="muted">Status se dodjeljuje sam kad član prvi put dosegne ${num(pr.threshold ?? 300)} bodova.</span>`}
+      <div class="row no-print" style="margin-top:12px">
+        <button class="btn small ${pr.since ? 'gray' : ''}" id="pr-toggle">${pr.since ? 'Ukloni PREMIUM' : 'Dodijeli PREMIUM ručno'}</button>
+        ${pr.since ? `<button class="btn small ${pr.voucher_issued_at ? 'gray' : ''}" id="pr-voucher">${pr.voucher_issued_at ? 'Poništi oznaku bona' : 'Označi bon predanim'}</button>` : ''}
+      </div>
+      ${x.legacy ? `<p class="muted small" style="margin:12px 0 0">Prijelazni popust ${x.legacy.pct} % iskorišten ${dt(x.legacy.used_at)}${x.legacy.staff ? ` (${esc(x.legacy.staff)})` : ''}${x.legacy.note ? ` — ${esc(x.legacy.note)}` : ''}.</p>` : ''}
+    </div>
+    <div class="cards" style="margin-bottom:18px">
+      <div class="card stat"><div class="v">${num(x.points)}</div><div class="l">bodova</div>${x.expire_at ? `<div class="s">vrijede do ${d(x.expire_at)}</div>` : ''}</div>
+      <div class="card stat"><div class="v gold">${num(x.pending)}</div><div class="l">na čekanju (webshop)</div></div>
+      <div class="card"><label style="margin-top:0">Korekcija bodova</label>
+        <div class="row"><input type="number" id="adj-delta" placeholder="npr. 20 ili -15" style="width:130px"><input type="text" id="adj-note" class="grow" placeholder="Razlog (obavezno)"></div>
+        <button class="btn small" id="adj-btn" style="margin-top:10px">Spremi korekciju</button><div class="help">Upiši + za dodavanje, − za oduzimanje. Razlog se zapisuje.</div></div>
+    </div>
+    <h2>Povijest bodova</h2>
+    ${x.ledger.length ? `<table><thead><tr><th>Kada</th><th>Što</th><th>Iznos</th><th>Bodovi</th><th>Stanje</th></tr></thead><tbody>
+      ${x.ledger.map((l) => `<tr><td class="small muted">${dt(l.at)}</td><td>${KIND[l.kind] ?? l.kind}${l.note ? `<br><span class="small muted">${esc(l.note)}</span>` : ''}</td><td>${l.amount != null ? eur(l.amount) : ''}</td><td class="pts ${l.delta >= 0 ? 'plus' : 'minus'}">${l.delta >= 0 ? '+' : ''}${l.delta}</td><td><span class="tag ${STATUS[l.status][1]}">${STATUS[l.status][0]}</span></td></tr>`).join('')}
+    </tbody></table>` : '<div class="empty">Još nema bodova.</div>'}
+    ${x.redemptions.length ? `<h2>Popusti</h2><table><thead><tr><th>Kada</th><th>Gdje</th><th>Popust</th><th>Potrošeno bodova</th><th>Stanje</th></tr></thead><tbody>
+      ${x.redemptions.map((r) => `<tr><td class="small muted">${dt(r.at)}</td><td>${r.channel === 'store' ? 'Trgovina' : 'Webshop'}${r.by_staff ? '<br><span class="small muted">odabrao djelatnik</span>' : ''}</td><td>−${r.discount}%${r.kind === 'legacy' ? '<br><span class="small muted">prijelazni (stari program)</span>' : ''}</td><td>${r.points}</td><td><span class="tag ${{ used: 'green', reserved: 'gold', released: 'gray', expired: 'gray' }[r.status]}">${{ used: 'Iskorišten', reserved: 'Aktivan', released: 'Odustao', expired: 'Istekao' }[r.status]}</span></td></tr>`).join('')}</tbody></table>` : ''}
+    ${x.events?.length ? `<h2>Događaji</h2><div class="card"><ul class="timeline">${x.events.map((e) => `<li><b>${EVENT[e.kind] ?? e.kind}</b> <span class="small muted">· ${dt(e.at)}${e.actor ? ` · ${esc(e.actor)}` : ''}</span>${e.note ? `<br><span class="small muted">${esc(e.note)}</span>` : ''}</li>`).join('')}</ul></div>` : ''}`;
+  $('.close', m.root).onclick = m.close;
+  $('#pr-toggle', m.root).onclick = async () => {
+    const on = !pr.since;
+    const note = await askNote(on ? `Dodijeliti PREMIUM članu ${p.name || p.email}?` : `Ukloniti PREMIUM članu ${p.name || p.email}?`, on ? 'npr. prijenos iz starog programa' : 'npr. pogreška / povrat robe');
+    if (!note) return openMember(id);
+    try { await rpc('admin_set_premium', { p_id: id, p_on: on, p_note: note }); toast(on ? 'PREMIUM dodijeljen.' : 'PREMIUM uklonjen. Ako član opet dosegne 300 bodova, dobiva ga automatski.'); } catch (e) { toast(msg(e), true); }
+    openMember(id);
+  };
+  if ($('#pr-voucher', m.root)) $('#pr-voucher', m.root).onclick = async () => {
+    const issued = !pr.voucher_issued_at;
+    const note = await askNote(issued ? 'Označiti da je fizički PREMIUM bon predan?' : 'Poništiti oznaku da je bon predan?', issued ? 'npr. predan kroz kasu 12.9.' : 'npr. krivo označeno na blagajni');
+    if (!note) return openMember(id);
+    try { await rpc('admin_set_voucher', { p_id: id, p_issued: issued, p_note: note }); toast(issued ? 'Bon označen kao predan.' : 'Oznaka poništena — Blagajna će ponovno ponuditi predaju bona.'); } catch (e) { toast(msg(e), true); }
+    openMember(id);
+  };
+  $('#adj-btn', m.root).onclick = async () => {
+    const delta = parseInt($('#adj-delta', m.root).value, 10); const note = $('#adj-note', m.root).value.trim();
+    if (!delta) return toast('Upiši broj bodova (npr. 20 ili -15).', true);
+    if (!note) return toast('Upiši razlog korekcije.', true);
+    if (!(await confirmDlg(`${delta > 0 ? 'Dodati' : 'Oduzeti'} ${Math.abs(delta)} bodova članu ${p.name || p.email}?`))) return;
+    try { const r = await rpc('admin_adjust_points', { p_id: id, p_delta: delta, p_note: note }); toast(`Spremljeno. Novo stanje: ${r.balance} bodova.`); openMember(id); } catch (e) { toast(msg(e), true); }
+  };
+}
+
+// ---------- KUPONI ----------
+pages.kuponi = async () => {
+  const list = await rpc('admin_coupons');
+  const today = new Date().toISOString().slice(0, 10);
+  $('#main').innerHTML = `
+    <h1>Kuponi</h1><p class="lead">Promotivni kuponi koje članovi vide u aplikaciji i aktiviraju. Popust se odobrava na blagajni / webshopu prema uvjetima kupona.</p>
+    <div class="banner">💡 Za akcije najavljene članovima ("ovaj vikend −15 %") zakon traži da se uz sniženu cijenu prikaže i najniža cijena u zadnjih 30 dana. Bodovi i osobni kuponi (rođendan, dobrodošlica) su izuzeti.</div>
+    <button class="btn" id="new">+ Novi kupon</button>
+    <h2>Svi kuponi</h2>
+    ${list.length ? `<table><thead><tr><th>Naziv</th><th>Popust</th><th>Vrijedi</th><th>Aktivirali</th><th>Stanje</th><th></th></tr></thead><tbody>
+      ${list.map((c) => { const expired = c.valid_until < today; return `<tr><td><b>${esc(c.title)}</b><br><span class="small muted">${esc(c.subtitle)}</span></td><td class="pts">${esc(c.discount)}</td><td class="small">${d(c.valid_from)} – ${d(c.valid_until)}</td><td>${num(c.activations)}</td><td>${expired ? '<span class="tag gray">istekao</span>' : c.active ? '<span class="tag green">aktivan</span>' : '<span class="tag gray">isključen</span>'}</td><td class="row"><button class="btn small gray" data-edit="${c.id}">Uredi</button><button class="btn small ${c.active ? 'gray' : ''}" data-toggle="${c.id}">${c.active ? 'Isključi' : 'Uključi'}</button><button class="btn small danger" data-del="${c.id}">Obriši</button></td></tr>`; }).join('')}
+    </tbody></table>` : '<div class="empty">Još nema kupona.</div>'}`;
+  const form = (c = {}) => {
+    const m = modal(`<h1 style="font-size:22px">${c.id ? 'Uredi kupon' : 'Novi kupon'}</h1>
+      <label>Naziv (vidi ga kupac)</label><input type="text" id="c-title" value="${esc(c.title ?? '')}" placeholder="npr. Vikend za ljubimce">
+      <label>Opis</label><input type="text" id="c-sub" value="${esc(c.subtitle ?? '')}" placeholder="npr. Popust na svu hranu za pse i mačke">
+      <div class="two"><div><label>Popust (tekst)</label><input type="text" id="c-disc" value="${esc(c.discount ?? '')}" placeholder="npr. -15% ili 2+1"></div>
+      <div><label>Vrsta</label><select id="c-kind"><option value="promo" ${c.kind !== 'welcome' ? 'selected' : ''}>Promo</option><option value="welcome" ${c.kind === 'welcome' ? 'selected' : ''}>Dobrodošlica</option></select></div></div>
+      <div class="two"><div><label>Vrijedi od</label><input type="date" id="c-from" value="${c.valid_from ?? today}"></div><div><label>Vrijedi do</label><input type="date" id="c-until" value="${c.valid_until ?? ''}"></div></div>
+      <label><input type="checkbox" id="c-active" ${c.active !== false ? 'checked' : ''}> Aktivan (vidljiv u aplikaciji)</label>
+      <div class="row" style="margin-top:18px"><button class="btn" id="c-save">Spremi</button><button class="btn gray" id="c-cancel">Odustani</button></div>`);
+    $('#c-cancel', m.root).onclick = m.close;
+    $('#c-save', m.root).onclick = async () => {
+      const p = { id: c.id, title: $('#c-title', m.root).value.trim(), subtitle: $('#c-sub', m.root).value.trim(), discount: $('#c-disc', m.root).value.trim(), kind: $('#c-kind', m.root).value, valid_from: $('#c-from', m.root).value, valid_until: $('#c-until', m.root).value, active: $('#c-active', m.root).checked, sort_order: c.sort_order ?? 100 };
+      try { await rpc('admin_coupon_save', { p }); m.close(); toast('Kupon spremljen.'); go('kuponi'); } catch (e) { toast(msg(e), true); }
+    };
+  };
+  $('#new').onclick = () => form();
+  $$('[data-edit]').forEach((b) => (b.onclick = () => form(list.find((c) => c.id === b.dataset.edit))));
+  $$('[data-toggle]').forEach((b) => (b.onclick = async () => { const c = list.find((x) => x.id === b.dataset.toggle); try { await rpc('admin_coupon_save', { p: { ...c, active: !c.active } }); toast(c.active ? 'Kupon isključen.' : 'Kupon uključen.'); go('kuponi'); } catch (e) { toast(msg(e), true); } }));
+  $$('[data-del]').forEach((b) => (b.onclick = async () => { const c = list.find((x) => x.id === b.dataset.del); if (!(await confirmDlg(`Obrisati kupon "${c.title}"?`))) return; try { await rpc('admin_coupon_delete', { p_id: c.id }); toast('Kupon obrisan.'); go('kuponi'); } catch (e) { toast(msg(e), true); } }));
+};
+
+// ---------- OSOBLJE ----------
+pages.osoblje = async () => {
+  const ppl = await rpc('admin_people');
+  $('#main').innerHTML = `
+    <h1>Osoblje</h1><p class="lead">Tko smije koristiti <b>Blagajnu</b> u aplikaciji (registrirati kupnje) i tko smije u ovo upravljanje.</p>
+    <div class="banner">Osoba se prvo mora <b>registrirati u Zoo Vili aplikaciji</b> (kao običan član, svojim e-mailom). Zatim je ovdje dodaš po tom e-mailu — u njezinoj aplikaciji pojavi se "Blagajna".</div>
+    <h2>Blagajna (prodavači)</h2>
+    <div class="row" style="margin-bottom:12px"><input type="email" id="s-email" class="grow" placeholder="e-mail prodavača (kao u aplikaciji)"><input type="text" id="s-store" placeholder="Trgovina, npr. Zoo Vili Petrinjska" style="width:260px"><button class="btn" id="s-add">Dodaj</button></div>
+    ${ppl.staff.length ? `<table><thead><tr><th>Osoba</th><th>Trgovina</th><th>Od</th><th>Stanje</th><th></th></tr></thead><tbody>
+      ${ppl.staff.map((s) => `<tr><td><b>${esc(s.name || '—')}</b><br><span class="small muted">${esc(s.email)}</span></td><td>${esc(s.store)}</td><td class="small">${d(s.since)}</td><td>${s.active ? '<span class="tag green">aktivno</span>' : '<span class="tag gray">isključeno</span>'}</td><td><button class="btn small gray" data-staff="${esc(s.email)}" data-active="${s.active ? 0 : 1}">${s.active ? 'Isključi' : 'Uključi'}</button></td></tr>`).join('')}
+    </tbody></table>` : '<div class="empty">Još nema prodavača.</div>'}
+    <h2>Administratori (ovo upravljanje)</h2>
+    <div class="row" style="margin-bottom:12px"><input type="email" id="a-email" class="grow" placeholder="e-mail osobe (kao u aplikaciji)"><button class="btn" id="a-add">Dodaj administratora</button></div>
+    <table><thead><tr><th>Osoba</th><th>Od</th><th></th></tr></thead><tbody>
+      ${ppl.admins.map((a) => `<tr><td><b>${esc(a.name || '—')}</b><br><span class="small muted">${esc(a.email)}</span></td><td class="small">${d(a.since)}</td><td><button class="btn small danger" data-admin-del="${esc(a.email)}">Ukloni</button></td></tr>`).join('')}
+    </tbody></table>`;
+  $('#s-add').onclick = async () => { try { await rpc('admin_staff_set', { p_email: $('#s-email').value.trim(), p_active: true, p_store: $('#s-store').value.trim() || 'Zoo Vili' }); toast('Dodano. U aplikaciji te osobe pojavit će se Blagajna.'); go('osoblje'); } catch (e) { toast(msg(e), true); } };
+  $$('[data-staff]').forEach((b) => (b.onclick = async () => { try { await rpc('admin_staff_set', { p_email: b.dataset.staff, p_active: b.dataset.active === '1' }); go('osoblje'); } catch (e) { toast(msg(e), true); } }));
+  $('#a-add').onclick = async () => { if (!(await confirmDlg(`Dati administratorski pristup osobi ${$('#a-email').value.trim()}? Vidjet će sve podatke članova.`))) return; try { await rpc('admin_admin_set', { p_email: $('#a-email').value.trim(), p_add: true }); toast('Administrator dodan.'); go('osoblje'); } catch (e) { toast(msg(e), true); } };
+  $$('[data-admin-del]').forEach((b) => (b.onclick = async () => { if (!(await confirmDlg(`Ukloniti administratora ${b.dataset.adminDel}?`))) return; try { await rpc('admin_admin_set', { p_email: b.dataset.adminDel, p_add: false }); go('osoblje'); } catch (e) { toast(msg(e), true); } }));
+};
+
+// ---------- WEBSHOP ----------
+pages.webshop = async () => {
+  const w = await rpc('admin_webshop');
+  const ok = w.last_sync && w.last_sync.outcome === 'ok' && Date.now() - new Date(w.last_sync.at) < 40 * 60000;
+  const T = { sync: 'Provjera webshopa', 'order.created': 'Nova narudžba', 'order.updated': 'Promjena narudžbe', 'order.deleted': 'Obrisana narudžba', 'customer.created': 'Novi kupac', 'customer.updated': 'Promjena kupca', 'customer.deleted': 'Obrisan kupac', 'webhooks.ensure': 'Održavanje veze', 'coupon.create': 'Kupon', 'coupon.delete': 'Kupon', 'account.deleted': 'Član obrisao račun' };
+  const O = (o) => ({ ok: ['u redu', 'green'], points_pending: ['bodovi na čekanju', 'gold'], points_confirmed: ['bodovi potvrđeni', 'green'], points_released: ['bodovi poništeni', 'gray'], ignored_not_member: ['nije član — preskočeno', 'gray'], noop: ['bez promjene', 'gray'], error: ['greška', 'red'], problem: ['problem', 'red'], bad_signature: ['odbijeno (potpis)', 'red'], created: ['kreirano', 'green'], reactivated: ['ponovno aktivirano', 'gold'], linked: ['povezan', 'green'], updated: ['ažurirano', 'green'], unlinked: ['odspojen', 'gray'] }[o] ?? [o, 'gray']);
+  $('#main').innerHTML = `
+    <h1>Webshop</h1><p class="lead">Stanje veze između webshopa i kluba. Sve je automatsko — ova stranica služi samo za provjeru.</p>
+    <div class="banner ${ok ? '' : 'warn'}">${ok ? '✅ Veza s webshopom radi.' : '⚠️ Veza s webshopom nije potvrđena u zadnjih 40 minuta.'} ${w.last_sync ? `Zadnja provjera: ${dt(w.last_sync.at)}.` : ''}<br><span class="small">Ako piše upozorenje dulje od sat vremena, javi se tehničkoj podršci (TAVIRA DIGITAL). Bodovi se ne gube — naknadno se usklade.</span></div>
+    <div class="cards"><div class="card stat"><div class="v">${num(w.orders_total)}</div><div class="l">webshop narudžbi članova ukupno</div></div><div class="card stat"><div class="v">${num(w.orders_30d)}</div><div class="l">u zadnjih 30 dana</div></div></div>
+    <h2>Zadnji događaji</h2>
+    ${w.events.length ? `<table><thead><tr><th>Kada</th><th>Događaj</th><th>Br.</th><th>Ishod</th></tr></thead><tbody>
+      ${w.events.map((e) => { const [t, c] = O(e.outcome); return `<tr><td class="small muted">${dt(e.at)}</td><td>${T[e.topic] ?? e.topic}</td><td class="small">${e.resource_id ?? ''}</td><td><span class="tag ${c}">${t}</span>${e.detail && (c === 'red') ? `<br><span class="small muted">${esc(e.detail)}</span>` : ''}</td></tr>`; }).join('')}
+    </tbody></table>` : '<div class="empty">Još nema događaja.</div>'}`;
+};
+
+// ---------- POSTAVKE ----------
+const afterText = (t) => t.max_points_after === 0 ? 'bodovi idu na 0' : t.max_points_after == null ? 'troši bodove praga' : `ostaje najviše ${t.max_points_after} bodova`;
+pages.postavke = async () => {
+  const s = await rpc('admin_settings');
+  $('#main').innerHTML = `
+    <h1>Postavke</h1><p class="lead">Pravila kluba. Promjene vrijede odmah za sve članove — mijenjaj oprezno.</p>
+    <h2>Razine popusta (Zoo Vili Klub, rujan 2026.)</h2>
+    <table style="max-width:760px"><thead><tr><th>Bodovi</th><th>Popust</th><th>Nakon korištenja</th></tr></thead><tbody>
+      ${s.tiers.map((t) => `<tr><td class="pts">${t.points}</td><td class="pts">−${t.discount} %</td><td>${afterText(t)}</td></tr>`).join('')}
+      <tr><td class="pts">${s.premium_points}</td><td><span class="tag premium">⭐ PREMIUM</span></td><td>status (osvaja se jednom) + jedan fizički bon</td></tr>
+    </tbody></table>
+    <p class="help" style="max-width:760px">1 € = ${s.points_per_eur} bod na stvarno plaćeni iznos. Popusti se ne zbrajaju (ILI / ILI). Pragove, pravilo „nakon korištenja“ i prag PREMIUM-a mijenja tehnička podrška — utječu na Pravila programa koja su kupci prihvatili.</p>
+    <div class="card" style="max-width:560px;margin-top:22px">
+      <label>Prijelazni popust ${s.legacy_discount_pct} % za stare kupce vrijedi do (uključivo)</label>
+      <input type="date" id="p-legacy" value="${s.legacy_discount_until ?? ''}">
+      <div class="help">${s.legacy_active ? '✅ Trenutno aktivno — Blagajna nudi prijelazni popust (jednom po kupcu, uz potvrdu djelatnika).' : '⏸ Nije aktivno.'} Prazno = isključeno. Po uputi vrijedi tijekom rujna 2026.; produžiti samo ako uprava tako odluči.</div>
+      <label style="display:flex;gap:10px;align-items:center;margin-top:16px"><input type="checkbox" id="p-sale" ${s.web_coupon_exclude_sale ? 'checked' : ''} style="width:20px;height:20px"> Kupon iz kluba na webshopu ne vrijedi za artikle na akciji (ILI / ILI)</label>
+      <label>Bodovi dobrodošlice (pri registraciji u aplikaciji)</label><input type="number" id="p-welcome" value="${s.welcome_points}" min="0"><div class="help">Finalna uputa ih ne spominje — 0 ako ih ne želite.</div>
+      <label>Bodovi istječu nakon (mjeseci bez kupnje)</label><input type="number" id="p-expire" value="${s.points_expire_months}" min="0"><div class="help">0 = bodovi nikad ne istječu.</div>
+      <label>Kod za blagajnu vrijedi (minuta)</label><input type="number" id="p-ttl" value="${s.store_code_ttl_min}" min="5">
+      <label>Kupon za webshop vrijedi (sati)</label><input type="number" id="p-web" value="${s.web_coupon_ttl_hours}" min="1">
+      <button class="btn" id="p-save" style="margin-top:18px">Spremi</button>
+    </div>`;
+  $('#p-save').onclick = async () => { try { await rpc('admin_settings_save', { p: { welcome_points: +$('#p-welcome').value, points_expire_months: +$('#p-expire').value, store_code_ttl_min: +$('#p-ttl').value, web_coupon_ttl_hours: +$('#p-web').value, legacy_discount_until: $('#p-legacy').value, web_coupon_exclude_sale: $('#p-sale').checked } }); toast('Postavke spremljene.'); go('postavke'); } catch (e) { toast(msg(e), true); } };
+};
+
+// ---------- PRAVILA (jedinstvena poruka + podsjetnik za djelatnike, za ispis) ----------
+pages.pravila = async () => {
+  const s = await rpc('admin_settings');
+  const top = s.tiers[s.tiers.length - 1] ?? { points: 200, discount: 13 };
+  const ladder = s.tiers.map((t) => `${t.points} = ${t.discount} %`).join(' | ');
+  const small = s.tiers.slice(0, -1);
+  const legacyTxt = s.legacy_discount_until ? `do ${d(s.legacy_discount_until)}` : 'isključeno';
+  $('#main').innerHTML = `
+    <div class="row" style="justify-content:space-between"><h1>Pravila Zoo Vili Kluba</h1><button class="btn ghost no-print" onclick="window.print()">🖨 Ispiši</button></div>
+    <p class="lead">Što marketing, trgovina i aplikacija komuniciraju jednako (finalna uputa, rujan 2026.). Vrijednosti su trenutne postavke sustava.</p>
+    <table class="rules"><tbody>
+      <tr><td>Bodovanje</td><td>1 € = ${s.points_per_eur} bod na stvarno plaćeni iznos (nakon svih popusta).</td></tr>
+      <tr><td>Pragovi</td><td>${ladder} | ${s.premium_points} = PREMIUM</td></tr>
+      <tr><td>Maksimalni popust</td><td>${top.discount} % bez obzira na ukupan broj bodova.</td></tr>
+      <tr><td>Nakon ${top.discount} %</td><td>Skupljeni bodovi se resetiraju na 0 i kreće novo skupljanje.</td></tr>
+      ${small.length ? `<tr><td>Nakon ${small.map((t) => `${t.discount} %`).join(' ili ')}</td><td>Na kartici ostaje najviše ${small[0].max_points_after ?? '—'} bodova (aplikacija i Blagajna računaju automatski).</td></tr>` : ''}
+      <tr><td>PREMIUM</td><td>Status se osvaja jednom pri prvom dolasku do ${s.premium_points} bodova; fizički bon samo jednom. Upisuje se u „Nadimak“ u kasi. Za idući ${top.discount} % dovoljno je opet ${top.points} bodova. Nije trajni popust.</td></tr>
+      <tr><td>Rujan 2026.</td><td>Stari kupci koji su već imali pravo na ${s.legacy_discount_pct} % mogu ga ručno koristiti (${legacyTxt}). Novi članovi i novo skupljeni bodovi ne ostvaruju ${s.legacy_discount_pct} %.</td></tr>
+      <tr><td>Popusti</td><td>Ne zbrajaju se — uvijek ILI / ILI.</td></tr>
+      <tr><td>20 % na drugu vreću</td><td>Odabrani artikli, obje vreće na istom računu, popust na jeftiniju (kod iste cijene na jednu). Ne zbraja se s drugim postotnim popustom.</td></tr>
+      <tr><td>Kolo sreće</td><td>Uskoro — samo najavljujemo. Član + kupnja od najmanje 25 € = 1 vrtnja; jedan račun = najviše jedna vrtnja.</td></tr>
+    </tbody></table>
+    <h2>Brzi podsjetnik za djelatnike</h2>
+    <div class="card"><ol style="margin:0;padding-left:22px;line-height:1.9;font-weight:700">
+      <li>1 € = 1 bod.</li><li>${ladder}.</li><li>Na ${s.premium_points} bodova prvi put se aktivira PREMIUM.</li><li>PREMIUM upisati u „Nadimak“ kupca/građanina.</li>
+      <li>Kod prvog PREMIUM-a dati jedan fizički bon za iduću kupnju (u aplikaciji potvrditi „Bon predan“).</li><li>${top.discount} % je maksimalni bodovni popust.</li>
+      <li>Kad se koristi ${top.discount} %, bodovi idu na 0.</li>${s.legacy_active ? `<li>${legacyTxt[0].toUpperCase() + legacyTxt.slice(1)} stari kupci koji su već imali ${s.legacy_discount_pct} % mogu ručno dobiti ${s.legacy_discount_pct} %.</li>` : ''}
+      <li>Popusti se ne zbrajaju — uvijek ILI / ILI.</li><li>Ako niste sigurni, provjerite prije završetka računa — ne improvizirajte.</li>
+    </ol></div>
+    <p class="help">Kupcu: „Za svaki 1 € stvarno plaćene kupnje dobivate 1 bod. ${s.tiers.map((t, i) => `${i === 0 ? 'Na' : i === s.tiers.length - 1 ? 'a na' : 'na'} ${t.points} bodova ${i === 0 ? 'možete koristiti ' : ''}${t.discount} %`).join(', ')}. Možete nastaviti skupljati do ${s.premium_points} bodova i tada otključavate PREMIUM status.“</p>`;
+};
+
+start();
+</script>
+</body>
+</html>
