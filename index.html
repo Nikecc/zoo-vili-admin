@@ -150,7 +150,7 @@ const ago = (iso) => { if (!iso) return 'nikad'; const m = Math.round((Date.now(
 const KIND = { welcome: 'Dobrodošlica', purchase_store: 'Kupnja u trgovini', purchase_web: 'Kupnja na webshopu', redeem: 'Iskorišten popust', refund: 'Povrat robe', adjust: 'Ručna korekcija', expire: 'Istek bodova', premium: 'PREMIUM osvojen (skinuto)' };
 const STATUS = { pending: ['Na čekanju', 'gold'], confirmed: ['Potvrđeno', 'green'], released: ['Poništeno', 'gray'] };
 const EVENT = { premium_reached: '⭐ PREMIUM osvojen (dosegnut prag bodova)', premium_granted: '⭐ PREMIUM dodijeljen ručno', premium_revoked: 'PREMIUM uklonjen', premium_expired: 'PREMIUM istekao (prošlo 12 mjeseci)', premium_voucher_issued: '🎁 Fizički PREMIUM kupon predan', premium_voucher_reset: 'Oznaka kupona poništena', legacy_discount: 'Prijelazni popust 15 % (stari program)' };
-const ERR = { not_admin: 'Ovaj račun nema administratorske ovlasti.', no_account: 'Ta osoba još nema račun u aplikaciji - neka se prvo registrira u Zoo Vili aplikaciji.', note_required: 'Upiši razlog.', bad_delta: 'Broj bodova nije ispravan.', cannot_remove_self: 'Ne možeš ukloniti sebe.', last_admin: 'Mora ostati barem jedan administrator.', missing_fields: 'Popuni naziv, popust i datum.', bad_value: 'Vrijednost nije ispravna.', not_premium: 'Član nije PREMIUM - prvo mu dodijeli PREMIUM.', otp_disabled: 'Taj e-mail nema račun. Osoba se prvo mora registrirati u aplikaciji.', signup_disabled: 'Taj e-mail nema račun.' };
+const ERR = { not_admin: 'Ovaj račun nema administratorske ovlasti.', no_account: 'Ta osoba još nema račun u aplikaciji - neka se prvo registrira u Zoo Vili aplikaciji.', note_required: 'Upiši razlog.', bad_delta: 'Broj bodova nije ispravan.', cannot_remove_self: 'Ne možeš ukloniti sebe.', last_admin: 'Mora ostati barem jedan administrator.', missing_fields: 'Popuni naziv, popust i datum.', bad_value: 'Vrijednost nije ispravna.', not_premium: 'Član nije PREMIUM - prvo mu dodijeli PREMIUM.', premium_disabled: 'PREMIUM je isključen iz programa - ne može se dodijeliti.', otp_disabled: 'Taj e-mail nema račun. Osoba se prvo mora registrirati u aplikaciji.', signup_disabled: 'Taj e-mail nema račun.' };
 const pctList = (o) => Object.entries(o ?? {}).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([k, v]) => `${k.replace('*', ' %*')}${k.includes('*') ? '' : ' %'}: ${v}`).join(' · ');
 // kratka forma s obaveznim razlogom (PREMIUM/kupon)
 const askNote = (title, placeholder) => new Promise((res) => { const m = modal(`<h2 style="margin-top:0">${esc(title)}</h2><label>Razlog (obavezno, zapisuje se)</label><input type="text" id="n-note" placeholder="${esc(placeholder)}"><div class="row" style="margin-top:16px"><button class="btn" id="n-ok">Spremi</button><button class="btn gray" id="n-no">Odustani</button></div>`); $('#n-note', m.root).focus(); $('#n-ok', m.root).onclick = () => { const v = $('#n-note', m.root).value.trim(); if (!v) return toast('Upiši razlog.', true); m.close(); res(v); }; $('#n-no', m.root).onclick = () => { m.close(); res(null); }; });
@@ -207,9 +207,14 @@ function go(page) {
 $$('nav button[data-page]').forEach((b) => (b.onclick = () => go(b.dataset.page)));
 window.addEventListener('hashchange', () => { const p = location.hash.replace('#', ''); if (p && pages[p] && !$('#app').classList.contains('hidden')) go(p); });
 
+// PREMIUM je dio programa samo kad je uključen u bazi (isključen 28.10.2026. - kasa ga ne podržava)
+let premiumOnCache = null;
+const premiumOn = async () => (premiumOnCache ??= rpc('admin_settings').then((x) => !!x.premium_enabled).catch(() => false));
+
 // ---------- PREGLED ----------
+const PREMIUM_TILE = (s) => `<div class="card stat"><div class="v" style="color:var(--navy)">⭐ ${num(s.premium_total)}</div><div class="l">PREMIUM članova</div><div class="s">+${num(s.premium_new_30d)} u zadnjih 30 dana · ${s.vouchers_pending ? `<a href="#" data-go-filter="voucher" class="bad">${num(s.vouchers_pending)} čeka fizički kupon</a>` : 'svi bonovi predani'}</div></div>`;
 pages.pregled = async () => {
-  const [s, act] = await Promise.all([rpc('admin_stats'), rpc('admin_activity', { p_limit: 15 })]);
+  const [s, act, pOn] = await Promise.all([rpc('admin_stats'), rpc('admin_activity', { p_limit: 15 }), premiumOn()]);
   const syncOk = s.last_sync && s.last_sync.outcome === 'ok' && Date.now() - new Date(s.last_sync.at) < 40 * 60000;
   $('#main').innerHTML = `
     <h1>Pregled</h1><p class="lead">Kako ide Zoo Vili klub - stanje danas, ${new Date().toLocaleDateString('hr-HR')}</p>
@@ -219,7 +224,7 @@ pages.pregled = async () => {
       <div class="card stat"><div class="v">${eur(s.purchases_month.sum)}</div><div class="l">promet članova ovaj mjesec</div><div class="s">trgovina ${eur(s.purchases_month_store.sum)} · webshop ${eur(s.purchases_month_web.sum)}</div></div>
       <div class="card stat"><div class="v gold">${num(s.points_outstanding)}</div><div class="l">bodova na karticama</div><div class="s"><a href="#" data-go-filter="ready">${num(s.members_ready_top)} članova</a> može iskoristiti najveći popust (${num(s.top_tier_points)}+ bodova)</div></div>
       <div class="card stat"><div class="v">${num(s.redemptions_month.count)}</div><div class="l">iskorištenih popusta ovaj mjesec</div><div class="s">${pctList(s.redemptions_month_by_pct) || 'još nijedan'} · ${num(s.redemptions_active)} aktivnih sad</div></div>
-      <div class="card stat"><div class="v" style="color:var(--navy)">⭐ ${num(s.premium_total)}</div><div class="l">PREMIUM članova</div><div class="s">+${num(s.premium_new_30d)} u zadnjih 30 dana · ${s.vouchers_pending ? `<a href="#" data-go-filter="voucher" class="bad">${num(s.vouchers_pending)} čeka fizički kupon</a>` : 'svi bonovi predani'}</div></div>
+      ${pOn || s.premium_total ? PREMIUM_TILE(s) : ''}
       ${s.legacy_active || s.legacy_used ? `<div class="card stat"><div class="v">${num(s.legacy_used)}</div><div class="l">prijelaznih popusta 15 %</div><div class="s">${s.legacy_active ? 'prijelazno razdoblje traje (Postavke)' : 'prijelazno razdoblje završeno'}</div></div>` : ''}
       <div class="card stat"><div class="v ${syncOk ? 'ok' : 'bad'}">${syncOk ? '✓' : '!'}</div><div class="l">veza s webshopom</div><div class="s">${s.last_sync ? 'zadnja provjera ' + ago(s.last_sync.at) : 'još nije povezano'}${s.webhook_problems_24h > 0 ? ` · <span class="bad">${s.webhook_problems_24h} problema u 24 h</span>` : ''}</div></div>
     </div>
@@ -235,9 +240,11 @@ pages.pregled = async () => {
 let memberFilter = '';
 const FILTERS = [['', 'Svi'], ['premium', '⭐ PREMIUM'], ['voucher', '🎁 Kupon nije predan'], ['ready', 'Mogu najveći popust']];
 pages.clanovi = async () => {
+  const pOn = await premiumOn();
+  const filters = pOn ? FILTERS : FILTERS.filter(([k]) => k !== 'premium' && k !== 'voucher');
   $('#main').innerHTML = `
-    <h1>Članovi</h1><p class="lead">Pretraži po imenu, e-mailu ili broju kartice. Klikni na člana za detalje, korekciju bodova i PREMIUM.</p>
-    <div class="chips">${FILTERS.map(([k, l]) => `<button class="chip ${memberFilter === k ? 'on' : ''}" data-filter="${k}">${l}</button>`).join('')}</div>
+    <h1>Članovi</h1><p class="lead">Pretraži po imenu, e-mailu ili broju kartice. Klikni na člana za detalje i korekciju bodova${pOn ? ' i PREMIUM' : ''}.</p>
+    <div class="chips">${filters.map(([k, l]) => `<button class="chip ${memberFilter === k ? 'on' : ''}" data-filter="${k}">${l}</button>`).join('')}</div>
     <div class="row" style="margin-bottom:14px"><input type="text" id="q" class="grow" placeholder="npr. Ana, ana@gmail.com ili ZV-0001001"><button class="btn" id="q-btn">Traži</button><button class="btn ghost" id="export">Preuzmi popis (CSV)</button></div>
     <div id="list"></div>`;
   const load = async () => {
@@ -265,11 +272,14 @@ async function openMember(id) {
   let x; try { x = await rpc('admin_member', { p_id: id }); } catch (e) { m.close(); toast(msg(e), true); return; }
   const p = x.profile;
   const pr = x.premium ?? {};
+  const pOn = await premiumOn();
+  const showPremium = pOn || !!pr.since;
   $('.modal', m.root).innerHTML = `<button class="close">✕</button>
     <h1 style="font-size:24px">${esc(p.name || 'Član')}${pr.since ? ' <span class="tag premium" style="font-size:14px;vertical-align:middle">⭐ PREMIUM</span>' : ''}</h1>
     <p class="lead">${esc(p.email)}${p.phone ? ' · ' + esc(p.phone) : ''} · kartica <b>${esc(p.card)}</b> · član od ${d(p.created_at)}
       ${p.webshop ? ' <span class="tag">webshop povezan</span>' : ''}${!p.verified ? ' <span class="tag gray">e-mail nepotvrđen</span>' : ''}${x.is_staff ? ' <span class="tag gold">osoblje</span>' : ''}</p>
-    <div class="premium-box" style="margin-bottom:16px">
+    ${showPremium ? '' : x.legacy ? `<p class="muted small">Prijelazni popust ${x.legacy.pct} % iskorišten ${dt(x.legacy.used_at)}${x.legacy.staff ? ` (${esc(x.legacy.staff)})` : ''}${x.legacy.note ? ` - ${esc(x.legacy.note)}` : ''}.</p>` : ''}
+    <div class="premium-box" style="margin-bottom:16px;${showPremium ? '' : 'display:none'}">
       ${pr.since
         ? `<b>⭐ PREMIUM od ${d(pr.since)}${pr.until ? ` do ${d(pr.until)}` : ''}</b> ${pr.voucher_issued_at ? `Fizički kupon predan ${dt(pr.voucher_issued_at)}${pr.voucher_issued_by ? ` (${esc(pr.voucher_issued_by)})` : ''}.` : '<span style="color:var(--gold)"><b>Fizički kupon još nije predan</b> - predaje se pri sljedećem dolasku u trgovinu; u kasi upisati PREMIUM u „Nadimak“.</span>'}`
         : `<b>Nije PREMIUM.</b> <span class="muted">Status se dodjeljuje sam kad član dosegne ${num(pr.threshold ?? 300)} bodova (pri tome se skida 100 bodova) i traje 12 mjeseci.</span>`}
@@ -398,7 +408,9 @@ pages.postavke = async () => {
     <h2>Razine popusta (Zoo Vili Klub, usklađeno 06.10.2026.)</h2>
     <table style="max-width:760px"><thead><tr><th>Bodovi</th><th>Popust</th><th>Nakon korištenja</th></tr></thead><tbody>
       ${s.tiers.map((t) => `<tr><td class="pts">${t.points}</td><td class="pts">−${t.discount} %</td><td>${afterText(t)}</td></tr>`).join('')}
-      <tr><td class="pts">${s.premium_points}</td><td><span class="tag premium">⭐ PREMIUM</span></td><td>status na ${mj(s.premium_months)}, skida se ${s.premium_cost_points} bodova (ostaje ${s.premium_points - s.premium_cost_points}) + jednokratni fizički kupon ${s.premium_voucher_pct} %</td></tr>
+      ${s.premium_enabled
+        ? `<tr><td class="pts">${s.premium_points}</td><td><span class="tag premium">⭐ PREMIUM</span></td><td>status na ${mj(s.premium_months)}, skida se ${s.premium_cost_points} bodova (ostaje ${s.premium_points - s.premium_cost_points}) + jednokratni fizički kupon ${s.premium_voucher_pct} %</td></tr>`
+        : `<tr><td class="pts muted">-</td><td><span class="tag gray">PREMIUM</span></td><td class="muted">isključen od 28.10.2026. (kasa ga ne podržava); ponovno ga uključuje tehnička podrška</td></tr>`}
     </tbody></table>
     <p class="help" style="max-width:760px">1 € = ${s.points_per_eur} bod na stvarno plaćeni iznos. Popusti se ne zbrajaju (ILI / ILI). Pragove, pravilo „nakon korištenja“ i pravila PREMIUM-a (prag, skidanje bodova, trajanje, kupon) mijenja tehnička podrška - utječu na Pravila programa koja su kupci prihvatili.</p>
     <div class="card" style="max-width:560px;margin-top:22px">
@@ -426,10 +438,10 @@ pages.pravila = async () => {
     <p class="lead">Što marketing, trgovina i aplikacija komuniciraju jednako (finalna uputa, rujan 2026., usklađeno 06.10.2026.). Vrijednosti su trenutne postavke sustava.</p>
     <table class="rules"><tbody>
       <tr><td>Bodovanje</td><td>1 € = ${s.points_per_eur} bod na stvarno plaćeni iznos (nakon svih popusta).</td></tr>
-      <tr><td>Pragovi</td><td>${ladder} | ${s.premium_points} = PREMIUM</td></tr>
+      <tr><td>Pragovi</td><td>${ladder}${s.premium_enabled ? ` | ${s.premium_points} = PREMIUM` : ''}</td></tr>
       <tr><td>Maksimalni popust</td><td>${top.discount} % po kupnji, bez obzira na ukupan broj bodova.</td></tr>
       <tr><td>Skidanje bodova</td><td>${s.tiers.map((t) => `${t.discount} % = −${t.points}`).join(', ')} bodova. Eventualni višak bodova ostaje korisniku (aplikacija i Blagajna računaju automatski).</td></tr>
-      <tr><td>PREMIUM</td><td>${s.premium_points} bodova = PREMIUM status na ${mj(s.premium_months)} + jednokratni fizički kupon ${s.premium_voucher_pct} % za sljedeću kupnju. Pri tome se skida ${s.premium_cost_points} bodova, pa ostaje ${s.premium_points - s.premium_cost_points} (dovoljno za ${top.discount} % na bilo kojoj sljedećoj kupnji). Status traje ${mj(s.premium_months)} bez obzira na to što član radi s bodovima. Upisuje se u „Nadimak“ u kasi. Kupon ${s.premium_voucher_pct} % i bodovni popust se ne zbrajaju. Nije trajni popust.</td></tr>
+      ${s.premium_enabled ? `<tr><td>PREMIUM</td><td>${s.premium_points} bodova = PREMIUM status na ${mj(s.premium_months)} + jednokratni fizički kupon ${s.premium_voucher_pct} % za sljedeću kupnju. Pri tome se skida ${s.premium_cost_points} bodova, pa ostaje ${s.premium_points - s.premium_cost_points} (dovoljno za ${top.discount} % na bilo kojoj sljedećoj kupnji). Status traje ${mj(s.premium_months)} bez obzira na to što član radi s bodovima. Upisuje se u „Nadimak“ u kasi. Kupon ${s.premium_voucher_pct} % i bodovni popust se ne zbrajaju. Nije trajni popust.</td></tr>` : ''}
       <tr><td>Rujan 2026.</td><td>Stari kupci koji su već imali pravo na ${s.legacy_discount_pct} % mogu ga ručno koristiti (${legacyTxt}). Novi članovi i novo skupljeni bodovi ne ostvaruju ${s.legacy_discount_pct} %.</td></tr>
       <tr><td>Popusti</td><td>Ne zbrajaju se - uvijek ILI / ILI.</td></tr>
       <tr><td>20 % na drugu vreću</td><td>Odabrani artikli, obje vreće na istom računu, popust na jeftiniju (kod iste cijene na jednu). Ne zbraja se s drugim postotnim popustom.</td></tr>
@@ -439,12 +451,12 @@ pages.pravila = async () => {
     <div class="card"><ol style="margin:0;padding-left:22px;line-height:1.9;font-weight:700">
       <li>1 € = 1 bod.</li><li>${ladder}.</li><li>Popust skida točno prag (${s.tiers.map((t) => `${t.discount} % = −${t.points}`).join(', ')}); višak ostaje.</li>
       <li>${top.discount} % je maksimalni bodovni popust.</li>
-      <li>Na ${s.premium_points} bodova kupac postaje PREMIUM na ${mj(s.premium_months)}; sustav sam skida ${s.premium_cost_points} bodova.</li><li>PREMIUM upisati u „Nadimak“ kupca/građanina.</li>
+      ${s.premium_enabled ? `<li>Na ${s.premium_points} bodova kupac postaje PREMIUM na ${mj(s.premium_months)}; sustav sam skida ${s.premium_cost_points} bodova.</li><li>PREMIUM upisati u „Nadimak“ kupca/građanina.</li>
       <li>Uz PREMIUM dati jednokratni fizički kupon ${s.premium_voucher_pct} % za iduću kupnju (u aplikaciji potvrditi „Kupon predan“).</li>
-      <li>Kupon ${s.premium_voucher_pct} % i bodovni popust se ne zbrajaju.</li>${s.legacy_active ? `<li>${legacyTxt[0].toUpperCase() + legacyTxt.slice(1)} stari kupci koji su već imali ${s.legacy_discount_pct} % mogu ručno dobiti ${s.legacy_discount_pct} %.</li>` : ''}
+      <li>Kupon ${s.premium_voucher_pct} % i bodovni popust se ne zbrajaju.</li>` : ''}${s.legacy_active ? `<li>${legacyTxt[0].toUpperCase() + legacyTxt.slice(1)} stari kupci koji su već imali ${s.legacy_discount_pct} % mogu ručno dobiti ${s.legacy_discount_pct} %.</li>` : ''}
       <li>Popusti se ne zbrajaju - uvijek ILI / ILI.</li><li>Ako niste sigurni, provjerite prije završetka računa - ne improvizirajte.</li>
     </ol></div>
-    <p class="help">Kupcu: „Za svaki 1 € stvarno plaćene kupnje dobivate 1 bod. ${s.tiers.map((t, i) => `${i === 0 ? 'Na' : i === s.tiers.length - 1 ? 'a na' : 'na'} ${t.points} bodova ${i === 0 ? 'možete koristiti ' : ''}${t.discount} %`).join(', ')}. Popust skida samo bodove svog praga, višak ostaje. Na ${s.premium_points} bodova postajete PREMIUM član na ${mj(s.premium_months)} i dobivate kupon od ${s.premium_voucher_pct} % za iduću kupnju.“</p>`;
+    <p class="help">Kupcu: „Za svaki 1 € stvarno plaćene kupnje dobivate 1 bod. ${s.tiers.map((t, i) => `${i === 0 ? 'Na' : i === s.tiers.length - 1 ? 'a na' : 'na'} ${t.points} bodova ${i === 0 ? 'možete koristiti ' : ''}${t.discount} %`).join(', ')}. Popust skida samo bodove svog praga, višak ostaje.${s.premium_enabled ? ` Na ${s.premium_points} bodova postajete PREMIUM član na ${mj(s.premium_months)} i dobivate kupon od ${s.premium_voucher_pct} % za iduću kupnju.` : ''}“</p>`;
 };
 
 start();
