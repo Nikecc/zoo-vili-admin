@@ -400,12 +400,20 @@ pages.webshop = async () => {
 
 // ---------- POSTAVKE ----------
 const afterText = (t) => t.max_points_after === 0 ? 'bodovi idu na 0' : t.max_points_after == null ? `skida ${t.points} bodova, višak ostaje` : `ostaje najviše ${t.max_points_after} bodova`;
+// "5 % = −80, 10 % = −150 bodova, višak ostaje. 13 % = stanje bodova se vraća na 0, višak se ne čuva."
+const skidanje = (s) => {
+  const exact = s.tiers.filter((t) => t.max_points_after !== 0), reset = s.tiers.filter((t) => t.max_points_after === 0);
+  return [
+    exact.length ? `${exact.map((t) => `${t.discount} % = −${t.points}`).join(', ')} bodova, višak ostaje.` : '',
+    reset.length ? `${reset.map((t) => `${t.discount} %`).join(' i ')} = stanje bodova se vraća na 0, višak se ne čuva.` : '',
+  ].filter(Boolean).join(' ');
+};
 const mj = (n) => `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'mjesec' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'mjeseca' : 'mjeseci'}`;
 pages.postavke = async () => {
   const s = await rpc('admin_settings');
   $('#main').innerHTML = `
     <h1>Postavke</h1><p class="lead">Pravila kluba. Promjene vrijede odmah za sve članove - mijenjaj oprezno.</p>
-    <h2>Razine popusta (Zoo Vili Klub, usklađeno 06.10.2026.)</h2>
+    <h2>Razine popusta (Zoo Vili Klub, usklađeno 02.11.2026.)</h2>
     <table style="max-width:760px"><thead><tr><th>Bodovi</th><th>Popust</th><th>Nakon korištenja</th></tr></thead><tbody>
       ${s.tiers.map((t) => `<tr><td class="pts">${t.points}</td><td class="pts">−${t.discount} %</td><td>${afterText(t)}</td></tr>`).join('')}
       ${s.premium_enabled
@@ -435,28 +443,28 @@ pages.pravila = async () => {
   const legacyTxt = s.legacy_discount_until ? `do ${d(s.legacy_discount_until)}` : 'isključeno';
   $('#main').innerHTML = `
     <div class="row" style="justify-content:space-between"><h1>Pravila Zoo Vili Kluba</h1><button class="btn ghost no-print" onclick="window.print()">🖨 Ispiši</button></div>
-    <p class="lead">Što marketing, trgovina i aplikacija komuniciraju jednako (finalna uputa, rujan 2026., usklađeno 06.10.2026.). Vrijednosti su trenutne postavke sustava.</p>
+    <p class="lead">Što marketing, trgovina i aplikacija komuniciraju jednako (finalna uputa, rujan 2026., usklađeno 02.11.2026.). Vrijednosti su trenutne postavke sustava.</p>
     <table class="rules"><tbody>
       <tr><td>Bodovanje</td><td>1 € = ${s.points_per_eur} bod na stvarno plaćeni iznos (nakon svih popusta).</td></tr>
       <tr><td>Pragovi</td><td>${ladder}${s.premium_enabled ? ` | ${s.premium_points} = PREMIUM` : ''}</td></tr>
       <tr><td>Maksimalni popust</td><td>${top.discount} % po kupnji, bez obzira na ukupan broj bodova.</td></tr>
-      <tr><td>Skidanje bodova</td><td>${s.tiers.map((t) => `${t.discount} % = −${t.points}`).join(', ')} bodova. Eventualni višak bodova ostaje korisniku (aplikacija i Blagajna računaju automatski).</td></tr>
+      <tr><td>Skidanje bodova</td><td>${skidanje(s)} Aplikacija i Blagajna računaju automatski.</td></tr>
       ${s.premium_enabled ? `<tr><td>PREMIUM</td><td>${s.premium_points} bodova = PREMIUM status na ${mj(s.premium_months)} + jednokratni fizički kupon ${s.premium_voucher_pct} % za sljedeću kupnju. Pri tome se skida ${s.premium_cost_points} bodova, pa ostaje ${s.premium_points - s.premium_cost_points} (dovoljno za ${top.discount} % na bilo kojoj sljedećoj kupnji). Status traje ${mj(s.premium_months)} bez obzira na to što član radi s bodovima. Upisuje se u „Nadimak“ u kasi. Kupon ${s.premium_voucher_pct} % i bodovni popust se ne zbrajaju. Nije trajni popust.</td></tr>` : ''}
       <tr><td>Rujan 2026.</td><td>Stari kupci koji su već imali pravo na ${s.legacy_discount_pct} % mogu ga ručno koristiti (${legacyTxt}). Novi članovi i novo skupljeni bodovi ne ostvaruju ${s.legacy_discount_pct} %.</td></tr>
       <tr><td>Popusti</td><td>Ne zbrajaju se - uvijek ILI / ILI.</td></tr>
       <tr><td>20 % na drugu vreću</td><td>Odabrani artikli, obje vreće na istom računu, popust na jeftiniju (kod iste cijene na jednu). Ne zbraja se s drugim postotnim popustom.</td></tr>
-      <tr><td>Kolo sreće</td><td>Uskoro - samo najavljujemo. Član + kupnja od najmanje 25 € = 1 vrtnja; jedan račun = najviše jedna vrtnja.</td></tr>
+      <tr><td>Kolo sreće</td><td>Uskoro - samo najavljujemo. Član + kupnja od najmanje 30 € = 1 vrtnja; jedan račun = najviše jedna vrtnja.</td></tr>
     </tbody></table>
     <h2>Brzi podsjetnik za djelatnike</h2>
     <div class="card"><ol style="margin:0;padding-left:22px;line-height:1.9;font-weight:700">
-      <li>1 € = 1 bod.</li><li>${ladder}.</li><li>Popust skida točno prag (${s.tiers.map((t) => `${t.discount} % = −${t.points}`).join(', ')}); višak ostaje.</li>
+      <li>1 € = 1 bod.</li><li>${ladder}.</li><li>${skidanje(s)}</li>
       <li>${top.discount} % je maksimalni bodovni popust.</li>
       ${s.premium_enabled ? `<li>Na ${s.premium_points} bodova kupac postaje PREMIUM na ${mj(s.premium_months)}; sustav sam skida ${s.premium_cost_points} bodova.</li><li>PREMIUM upisati u „Nadimak“ kupca/građanina.</li>
       <li>Uz PREMIUM dati jednokratni fizički kupon ${s.premium_voucher_pct} % za iduću kupnju (u aplikaciji potvrditi „Kupon predan“).</li>
       <li>Kupon ${s.premium_voucher_pct} % i bodovni popust se ne zbrajaju.</li>` : ''}${s.legacy_active ? `<li>${legacyTxt[0].toUpperCase() + legacyTxt.slice(1)} stari kupci koji su već imali ${s.legacy_discount_pct} % mogu ručno dobiti ${s.legacy_discount_pct} %.</li>` : ''}
       <li>Popusti se ne zbrajaju - uvijek ILI / ILI.</li><li>Ako niste sigurni, provjerite prije završetka računa - ne improvizirajte.</li>
     </ol></div>
-    <p class="help">Kupcu: „Za svaki 1 € stvarno plaćene kupnje dobivate 1 bod. ${s.tiers.map((t, i) => `${i === 0 ? 'Na' : i === s.tiers.length - 1 ? 'a na' : 'na'} ${t.points} bodova ${i === 0 ? 'možete koristiti ' : ''}${t.discount} %`).join(', ')}. Popust skida samo bodove svog praga, višak ostaje.${s.premium_enabled ? ` Na ${s.premium_points} bodova postajete PREMIUM član na ${mj(s.premium_months)} i dobivate kupon od ${s.premium_voucher_pct} % za iduću kupnju.` : ''}“</p>`;
+    <p class="help">Kupcu: „Za svaki 1 € stvarno plaćene kupnje dobivate 1 bod. ${s.tiers.map((t, i) => `${i === 0 ? 'Na' : i === s.tiers.length - 1 ? 'a na' : 'na'} ${t.points} bodova ${i === 0 ? 'možete koristiti ' : ''}${t.discount} %`).join(', ')}. ${skidanje(s)}${s.premium_enabled ? ` Na ${s.premium_points} bodova postajete PREMIUM član na ${mj(s.premium_months)} i dobivate kupon od ${s.premium_voucher_pct} % za iduću kupnju.` : ''}“</p>`;
 };
 
 start();
