@@ -116,6 +116,7 @@
     <div class="logo">ZOO VILI<small>Klub vjernosti</small></div>
     <button data-page="pregled" class="active"><span class="ic">🏠</span>Pregled</button>
     <button data-page="clanovi"><span class="ic">👥</span>Članovi</button>
+    <button data-page="wand"><span class="ic">🧾</span>Za upis u WAND</button>
     <button data-page="kuponi"><span class="ic">🎟️</span>Kuponi</button>
     <button data-page="osoblje"><span class="ic">🧑‍💼</span>Osoblje</button>
     <button data-page="webshop"><span class="ic">🛒</span>Webshop</button>
@@ -150,7 +151,7 @@ const ago = (iso) => { if (!iso) return 'nikad'; const m = Math.round((Date.now(
 const KIND = { welcome: 'Dobrodošlica', purchase_store: 'Kupnja u trgovini', purchase_web: 'Kupnja na webshopu', redeem: 'Iskorišten popust', refund: 'Povrat robe', adjust: 'Ručna korekcija', expire: 'Istek bodova', premium: 'PREMIUM osvojen (skinuto)' };
 const STATUS = { pending: ['Na čekanju', 'gold'], confirmed: ['Potvrđeno', 'green'], released: ['Poništeno', 'gray'] };
 const EVENT = { premium_reached: '⭐ PREMIUM osvojen (dosegnut prag bodova)', premium_granted: '⭐ PREMIUM dodijeljen ručno', premium_revoked: 'PREMIUM uklonjen', premium_expired: 'PREMIUM istekao (prošlo 12 mjeseci)', premium_voucher_issued: '🎁 Fizički PREMIUM kupon predan', premium_voucher_reset: 'Oznaka kupona poništena', legacy_discount: 'Prijelazni popust 15 % (stari program)' };
-const ERR = { not_admin: 'Ovaj račun nema administratorske ovlasti.', no_account: 'Ta osoba još nema račun u aplikaciji - neka se prvo registrira u Zoo Vili aplikaciji.', note_required: 'Upiši razlog.', bad_delta: 'Broj bodova nije ispravan.', cannot_remove_self: 'Ne možeš ukloniti sebe.', last_admin: 'Mora ostati barem jedan administrator.', missing_fields: 'Popuni naziv, popust i datum.', bad_value: 'Vrijednost nije ispravna.', not_premium: 'Član nije PREMIUM - prvo mu dodijeli PREMIUM.', premium_disabled: 'PREMIUM je isključen iz programa - ne može se dodijeliti.', otp_disabled: 'Taj e-mail nema račun. Osoba se prvo mora registrirati u aplikaciji.', signup_disabled: 'Taj e-mail nema račun.' };
+const ERR = { not_admin: 'Ovaj račun nema administratorske ovlasti.', queue_changed: 'Popis se u međuvremenu promijenio - osvježavam, provjeri bodove pa klikni ponovno.', nothing_to_do: 'Za ovog člana više nema ništa za upis.', no_account: 'Ta osoba još nema račun u aplikaciji - neka se prvo registrira u Zoo Vili aplikaciji.', note_required: 'Upiši razlog.', bad_delta: 'Broj bodova nije ispravan.', cannot_remove_self: 'Ne možeš ukloniti sebe.', last_admin: 'Mora ostati barem jedan administrator.', missing_fields: 'Popuni naziv, popust i datum.', bad_value: 'Vrijednost nije ispravna.', not_premium: 'Član nije PREMIUM - prvo mu dodijeli PREMIUM.', premium_disabled: 'PREMIUM je isključen iz programa - ne može se dodijeliti.', otp_disabled: 'Taj e-mail nema račun. Osoba se prvo mora registrirati u aplikaciji.', signup_disabled: 'Taj e-mail nema račun.' };
 const pctList = (o) => Object.entries(o ?? {}).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([k, v]) => `${k.replace('*', ' %*')}${k.includes('*') ? '' : ' %'}: ${v}`).join(' · ');
 // kratka forma s obaveznim razlogom (PREMIUM/kupon)
 const askNote = (title, placeholder) => new Promise((res) => { const m = modal(`<h2 style="margin-top:0">${esc(title)}</h2><label>Razlog (obavezno, zapisuje se)</label><input type="text" id="n-note" placeholder="${esc(placeholder)}"><div class="row" style="margin-top:16px"><button class="btn" id="n-ok">Spremi</button><button class="btn gray" id="n-no">Odustani</button></div>`); $('#n-note', m.root).focus(); $('#n-ok', m.root).onclick = () => { const v = $('#n-note', m.root).value.trim(); if (!v) return toast('Upiši razlog.', true); m.close(); res(v); }; $('#n-no', m.root).onclick = () => { m.close(); res(null); }; });
@@ -396,6 +397,42 @@ pages.webshop = async () => {
     ${w.events.length ? `<table><thead><tr><th>Kada</th><th>Događaj</th><th>Br.</th><th>Ishod</th></tr></thead><tbody>
       ${w.events.map((e) => { const [t, c] = O(e.outcome); return `<tr><td class="small muted">${dt(e.at)}</td><td>${T[e.topic] ?? e.topic}</td><td class="small">${e.resource_id ?? ''}</td><td><span class="tag ${c}">${t}</span>${e.detail && (c === 'red') ? `<br><span class="small muted">${esc(e.detail)}</span>` : ''}</td></tr>`; }).join('')}
     </tbody></table>` : '<div class="empty">Još nema događaja.</div>'}`;
+};
+
+// ---------- ZA UPIS U WAND ----------
+// WAND (blagajna) je glavna evidencija kartica i bodova. Ovdje su članovi kojima treba otvoriti digitalnu karticu
+// u WAND-u ili jednom upisati bodove (25 dobrodošlice; webshop bodovi iz razdoblja dok nisu imali karticu).
+const csvCell = (v) => { const t = String(v ?? ''); return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+pages.wand = async () => {
+  const [q, prog] = await Promise.all([rpc('admin_wand_queue'), rpc('program')]);
+  const total = q.reduce((n, r) => n + r.points, 0);
+  const cards = q.filter((r) => r.needs_card).length;
+  $('#main').innerHTML = `
+    <div class="row" style="justify-content:space-between"><h1>Za upis u WAND</h1>${q.length ? '<button class="btn ghost" id="w-csv">⬇ Preuzmi CSV</button>' : ''}</div>
+    <p class="lead">Članovi kojima u WAND-u treba otvoriti digitalnu karticu ili jednom upisati bodove. Kad je upisano, klikni <b>Upisano</b> - član nestaje s popisa i isti bodovi se ne mogu ponuditi dvaput.</p>
+    <div class="banner">Bodovi za upis: <b>25 bodova dobrodošlice</b> (članovi koji su aktivirali aplikaciju) i, samo kod digitalnih kartica, <b>webshop bodovi</b> skupljeni prije nego što je kartica upisana u WAND (bez narudžbi tvrtki). Vlasnicima plastičnih kartica webshop bodove i dalje upisuje djelatnik pri obradi narudžbe.
+      <br>Digitalne kartice: ${prog.digital_cards_enabled ? '<b>uključene</b>' : '<b>isključene</b> - čeka se potvrda raspona brojeva (Zoo Vili i 4D)'}.</div>
+    ${q.length ? `<p class="small muted">${q.length} članova · ${cards} kartica za otvoriti · ${total} bodova za upis</p>
+    <table><thead><tr><th>Član</th><th>Kartica</th><th>Bodovi za upis</th><th></th></tr></thead><tbody>
+      ${q.map((r) => `<tr><td><b>${esc(r.name || '-')}</b><br><span class="small muted">${esc(r.email)}${r.phone ? ' · ' + esc(r.phone) : ''}</span></td>
+        <td><b>${esc(r.card)}</b><br>${r.needs_card ? '<span class="tag gold">digitalna - otvoriti u WAND-u</span>' : r.source === 'digital' ? '<span class="tag gray">digitalna</span>' : '<span class="tag gray">plastična</span>'}</td>
+        <td class="pts">${r.points}${r.points ? `<br><span class="small muted">${[r.welcome_points ? `${r.welcome_points} dobrodošlice` : '', r.webshop_points ? `${r.webshop_points} webshop` : ''].filter(Boolean).join(' + ')}</span>` : ''}</td>
+        <td><button class="btn small" data-wand="${r.id}" data-points="${r.points}" data-card="${esc(r.card)}" data-new="${r.needs_card ? 1 : 0}" data-name="${esc(r.name || r.email)}">Upisano</button></td></tr>`).join('')}
+    </tbody></table>` : '<div class="empty">Trenutno nema ništa za upis. 🎉</div>'}`;
+  $$('[data-wand]').forEach((b) => (b.onclick = async () => {
+    const pts = Number(b.dataset.points);
+    const what = [b.dataset.new === '1' ? `otvorena kartica ${b.dataset.card}` : '', pts ? `upisano ${pts} bodova na karticu ${b.dataset.card}` : ''].filter(Boolean).join(' i ');
+    if (!(await confirmDlg(`${b.dataset.name}: je li u WAND-u ${what}?`))) return;
+    try { await rpc('admin_wand_done', { p_id: b.dataset.wand, p_points: pts }); toast('Zabilježeno.'); go('wand'); }
+    catch (e) { toast(msg(e), true); if (msg(e) === ERR.queue_changed) go('wand'); }
+  }));
+  const csv = $('#w-csv');
+  if (csv) csv.onclick = () => {
+    const rows = [['ime', 'email', 'mobitel', 'kartica', 'vrsta', 'otvoriti_karticu', 'bodovi_dobrodoslica', 'bodovi_webshop', 'bodovi_ukupno'],
+      ...q.map((r) => [r.name, r.email, r.phone, r.card, r.source === 'digital' ? 'digitalna' : 'plasticna', r.needs_card ? 'da' : 'ne', r.welcome_points, r.webshop_points, r.points])];
+    const blob = new Blob(['﻿' + rows.map((r) => r.map(csvCell).join(';')).join('\n')], { type: 'text/csv;charset=utf-8' });
+    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `za-upis-u-wand-${new Date().toISOString().slice(0, 10)}.csv`; link.click();
+  };
 };
 
 // ---------- POSTAVKE ----------
